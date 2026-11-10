@@ -62,11 +62,18 @@ pub struct VideoCompressorApp {
     // UI state
     pub show_advanced: bool,
     pub visuals_initialized: bool,
+    pub ffmpeg_available: bool,
 }
 
 impl Default for VideoCompressorApp {
     fn default() -> Self {
         let (status_tx, status_rx) = crossbeam_channel::unbounded();
+        let ffmpeg_available = std::process::Command::new("ffmpeg")
+            .arg("-version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
         Self {
             active_view: ActiveView::Compressor,
 
@@ -93,6 +100,7 @@ impl Default for VideoCompressorApp {
 
             show_advanced: false,
             visuals_initialized: false,
+            ffmpeg_available,
         }
     }
 }
@@ -266,6 +274,25 @@ impl eframe::App for VideoCompressorApp {
         egui::CentralPanel::default().show(ui, |ui| {
             // --- TOP NAVIGATION BAR ---
             self.render_top_bar(ui);
+
+            if !self.ffmpeg_available {
+                ui.add_space(6.0);
+                egui::Frame::group(ui.style())
+                    .fill(Color32::from_rgb(38, 22, 22))
+                    .stroke(Stroke::new(1.0, COLOR_ERROR))
+                    .corner_radius(3)
+                    .inner_margin(8.0)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("FFmpeg is missing from PATH.").strong().color(COLOR_ERROR));
+                            ui.label(
+                                RichText::new("Install with: winget install ffmpeg (Windows) or brew install ffmpeg (macOS)")
+                                    .color(COLOR_TEXT_PRIMARY)
+                                    .size(11.5),
+                            );
+                        });
+                    });
+            }
 
             ui.add_space(8.0);
 
